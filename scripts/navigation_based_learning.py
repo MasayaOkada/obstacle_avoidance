@@ -205,7 +205,7 @@ class cource_following_learning_node:
 			else:
 				self.reset_simulation()
 				print("TEST MODE")
-		self.action_pub.publish(self.action)
+			self.action_pub.publish(self.action)
 
 		temp = copy.deepcopy(img)
 		cv2.imshow("Resized Image", temp)
