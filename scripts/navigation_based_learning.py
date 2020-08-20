@@ -85,7 +85,7 @@ class cource_following_learning_node:
 			set_model_state(model_state)
 		except rospy.ServiceException as exc:
 			print("Service did not process request: " + str(exc))
-'''
+
 
 	def checkInsideRectangle(self, points, width, length, offset, angle):
 		for point in points:
@@ -94,7 +94,8 @@ class cource_following_learning_node:
 			if (-width/2 + offset) <= y <= (width/2 + offset) and 0 <= x <= length:
 				return True
 		return False
-	
+'''
+
 	def callback_scan(self, scan):
 		points = []
 		angle = scan.angle_min
