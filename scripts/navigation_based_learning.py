@@ -13,9 +13,11 @@ from skimage.transform import resize
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Float32, Int8
 from std_srvs.srv import Empty
+from std_srvs.srv import Trigge
 from gazebo_msgs.srv import SetModelState
 from gazebo_msgs.srv import GetModelState
 from gazebo_msgs.msg import ModelState
+from actionlib_msgs.msg import GoalStatusArray
 import csv
 import os
 import time
@@ -34,11 +36,14 @@ class cource_following_learning_node:
 		self.bumper_sub = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, self.callback_bumper)
 		self.vel_sub = rospy.Subscriber("/cmd_vel", Twist, self.callback_vel)
 		self.scan_sub = rospy.Subscriber("/scan", LaserScan, self.callback_scan)
+		self.status_sub = rospy.Subscriber("/move_base/status", GoalStatusArray, self.callback_loop)
 		self.action_pub = rospy.Publisher("action", Int8, queue_size=1)
 		self.action = 0
 		self.reward = 0
 		self.episode = 0
 		self.count = 0
+		self.status = 0
+		self.loop_count = 0
 		self.success = 0
 		self.vel = 0
 		self.cv_image = np.zeros((480,640,3), np.uint8)
@@ -54,48 +59,14 @@ class cource_following_learning_node:
 			writer = csv.writer(f, lineterminator='\n')
 			writer.writerow(['epsode', 'time(s)', 'reward'])
 
+#get image
 	def callback(self, data):
 		try:
 			self.cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 		except CvBridgeError as e:
 			print(e)
 
-'''
-	def reset_simulation(self):
-		self.action_pub.publish(0)
-		rospy.wait_for_service('/gazebo/set_model_state')
-		set_model_state = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
-		model_state = ModelState()
-		model_state.model_name = 'mobile_base'
-		model_state.pose.position.x = 0
-		model_state.pose.position.y = 0
-		model_state.pose.position.z = 0
-		model_state.pose.orientation.x = 0
-		model_state.pose.orientation.y = 0
-		model_state.pose.orientation.z = 0.3 * (random.random() - 0.5)
-		model_state.pose.orientation.w = 1
-		model_state.twist.linear.x = 0
-		model_state.twist.linear.y = 0
-		model_state.twist.linear.z = 0
-		model_state.twist.angular.x = 0
-		model_state.twist.angular.y = 0
-		model_state.twist.angular.z = 0
-		model_state.reference_frame = 'world'
-		try:
-			set_model_state(model_state)
-		except rospy.ServiceException as exc:
-			print("Service did not process request: " + str(exc))
-
-
-	def checkInsideRectangle(self, points, width, length, offset, angle):
-		for point in points:
-			x =   point[0] * math.cos(angle) + point[1] * math.sin(angle)
-			y = - point[0] * math.sin(angle) + point[1] * math.cos(angle)
-			if (-width/2 + offset) <= y <= (width/2 + offset) and 0 <= x <= length:
-				return True
-		return False
-'''
-
+#obstacle distance
 	def callback_scan(self, scan):
 		points = []
 		angle = scan.angle_min
@@ -109,7 +80,7 @@ class cource_following_learning_node:
 		if collision:
 			self.callback_bumper(True)
 
-	
+#swich navigaiton
 	def callback_bumper(self, bumper):
 
 		print("!!!!!!! CORCHING !!!!!!!")
@@ -127,9 +98,10 @@ class cource_following_learning_node:
 		self.success = 0
 		self.episode += 1
 
+#action
 	def callback_vel(self, data):
 		self.vel = data.data
-# action
+
 		if 0.2 < self.vel.angular.z <= 0.4:
 			self.action = 1
 		elif -0.1 > self.vel.angular.z >= -0.2:
@@ -141,7 +113,20 @@ class cource_following_learning_node:
 		else:
 			self.action = 0
 
+#loop service
+	def callback_loop(self, data):
+		self.status = data.status_list[0]
 
+		if self.status.status == 3:
+			rospy.wait_for_service('start_wp_nav')
+			try:
+				service = rospy.ServiceProxy('start_wp_nav', Trigger)
+				response = service()
+			except rospy.ServiceException as e:
+				print("Service call failed: %s" % e)
+			self.loop_count += 1
+
+# loop
 	def loop(self):
 		if self.cv_image.size != 640 * 480 * 3:
 			return
