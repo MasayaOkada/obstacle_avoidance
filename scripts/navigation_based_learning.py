@@ -41,8 +41,6 @@ class cource_following_learning_node:
 		self.count = 0
 		self.success = 0
 		self.vel = 0
-#		self.linear = 0
-#		self.angular = 0
 		self.cv_image = np.zeros((480,640,3), np.uint8)
 		self.learning = True
 		self.start_time = time.strftime("%Y%m%d_%H:%M:%S")
@@ -62,6 +60,7 @@ class cource_following_learning_node:
 		except CvBridgeError as e:
 			print(e)
 
+'''
 	def reset_simulation(self):
 		self.action_pub.publish(0)
 		rospy.wait_for_service('/gazebo/set_model_state')
@@ -86,6 +85,7 @@ class cource_following_learning_node:
 			set_model_state(model_state)
 		except rospy.ServiceException as exc:
 			print("Service did not process request: " + str(exc))
+'''
 
 	def checkInsideRectangle(self, points, width, length, offset, angle):
 		for point in points:
@@ -102,28 +102,16 @@ class cource_following_learning_node:
 			if distance != float('inf') and not math.isnan(distance):
 				points.append((distance * math.cos(angle), distance * math.sin(angle)))
 			angle += scan.angle_increment
-			if distance <= 0.2:
+			if distance <= 0.4:
 				collision = True
 
 		if collision:
 			self.callback_bumper(True)
 
-'''
-			self.action = 1
-		elif not self.checkInsideRectangle(points, 1.0, 2.0, 0.0, math.radians(0)):
-			self.action = 0
-		else:
-			self.action = 2 
-'''
-
-
+	
 	def callback_bumper(self, bumper):
-		if rospy.get_time() - self.previous_reset_time < 1:
-			return
-		self.previous_reset_time = rospy.get_time()
 
-		print("!!!!!!! RESET !!!!!!!")
-		self.reset_simulation()
+		print("!!!!!!! CORCHING !!!!!!!")
 
 		if not self.learning:
 			return
@@ -140,13 +128,6 @@ class cource_following_learning_node:
 
 	def callback_vel(self, data):
 		self.vel = data.data
-'''
-# linear
-		if 0 <= self.vel.linear.x <= 0.1:
-			self.linear = 0
-		elif self.vel.linear.x > 0.1:
-			self.linear = 1
-'''
 # action
 		if 0.2 < self.vel.angular.z <= 0.4:
 			self.action = 1
